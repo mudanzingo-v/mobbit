@@ -1,15 +1,19 @@
 [submodule "backend-service"]
-	path = backend-service
-	url = ./backend-service
+    path = backend-service
+    url = ./backend-service
 
 [submodule "backoffice"]
-	path = backoffice
-	url = ./backoffice
+    path = backoffice
+    url = ./backoffice
 
 [submodule "b2c"]
-	path = b2c
-	url = ./b2c
+    path = b2c
+    url = ./b2c
 
 [submodule "provider"]
-	path = provider
-	url = ./provider
+    path = provider
+    url = ./provider
+
+[submodule "web-portal"]
+    path = web-portal
+    url = ./web-portal
