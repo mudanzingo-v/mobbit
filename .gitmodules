@@ -14,6 +14,3 @@
     path = provider
     url = ./provider
 
-[submodule "web-portal"]
-    path = web-portal
-    url = ./web-portal
