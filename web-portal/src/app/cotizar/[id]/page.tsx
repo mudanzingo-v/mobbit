@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft, CreditCard, Building2, DollarSign, CheckCircle } from "lucide-react"
+import { InvoiceSection } from "@/components/invoice-section"
 import { toast } from "sonner"
 
 export default function CotizarDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -137,9 +138,13 @@ export default function CotizarDetailPage({ params }: { params: Promise<{ id: st
 
           <Button className="w-full" size="lg" onClick={() => selectMut.mutate()} disabled={selectMut.isPending}>
             {selectMut.isPending ? "Procesando..." : `Pagar $${(Number((auctions ?? []).find((a: any) => a.id === selectedAuction)?.total) || 0).toFixed(2)}`}
-          </Button>
-        </>
-      )}
-    </div>
-  )
-}
+              </Button>
+            </>
+          )}
+
+          {/* Invoice section */}
+          <Separator />
+          <InvoiceSection quotationId={id} />
+        </div>
+      )
+    }

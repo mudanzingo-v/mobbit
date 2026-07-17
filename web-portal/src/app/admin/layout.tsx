@@ -15,6 +15,7 @@ import {
   Building2,
   DollarSign,
   Settings,
+  Search,
   Users,
   BarChart3,
   LogOut,
@@ -24,6 +25,7 @@ import { useState } from "react"
 
 const navItems = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin/search", label: "Buscar", icon: Search },
   { href: "/admin/quotations", label: "Cotizaciones", icon: FileText },
   { href: "/admin/auctions", label: "Ofertas", icon: Gavel },
   { href: "/admin/providers", label: "Transportistas", icon: Truck },

@@ -1,7 +1,13 @@
+"use client"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { useT } from "@/lib/i18n"
+import { LanguageSwitcher } from "@/components/language-switcher"
 
 export default function Home() {
+  const { t, locale } = useT()
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="border-b">
@@ -9,13 +15,14 @@ export default function Home() {
           <Link href="/" className="text-xl font-bold text-primary">
             Mobbit
           </Link>
-          <nav className="flex items-center gap-4">
+          <nav className="flex items-center gap-2">
             <Link href="/cotizar" className="text-sm text-muted-foreground hover:text-foreground">
-              Cotizar
+              {t.landing.cta}
             </Link>
+            <LanguageSwitcher />
             <Link href="/login">
               <Button variant="default" size="sm">
-                Iniciar sesión
+                {t.landing.login}
               </Button>
             </Link>
           </nav>
@@ -25,22 +32,21 @@ export default function Home() {
       <main className="flex-1">
         <section className="mx-auto max-w-7xl px-4 py-24 text-center">
           <h1 className="mb-6 text-5xl font-bold tracking-tight">
-            Mudanzas y fletes{' '}
-            <span className="text-primary">simples y seguros</span>
+            {t.landing.title}{' '}
+            <span className="text-primary">{t.landing.subtitle}</span>
           </h1>
           <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground">
-            Cotiza tu mudanza en minutos, recibe ofertas de transportistas verificados
-            y paga de forma segura. SPEI, OXXO o tarjeta.
+            {t.landing.description}
           </p>
           <div className="flex justify-center gap-4">
             <Link href="/cotizar">
               <Button size="lg" className="text-base">
-                Cotizar ahora
+                {t.landing.cta}
               </Button>
             </Link>
             <Link href="/login">
               <Button variant="outline" size="lg" className="text-base">
-                Soy transportista
+                {t.landing.providerCta}
               </Button>
             </Link>
           </div>
@@ -48,7 +54,7 @@ export default function Home() {
       </main>
 
       <footer className="border-t py-8 text-center text-sm text-muted-foreground">
-        <p>© {new Date().getFullYear()} Mobbit. Todos los derechos reservados.</p>
+        <p>© {new Date().getFullYear()} Mobbit. {locale === "en" ? "All rights reserved." : "Todos los derechos reservados."}</p>
       </footer>
     </div>
   )

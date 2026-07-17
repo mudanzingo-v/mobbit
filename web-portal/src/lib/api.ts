@@ -383,6 +383,20 @@ export const api = {
   listInvoices: (query?: { limit?: number; offset?: number }) =>
     requestWithMeta<any[]>("GET", "/api/admin/invoice", { query }),
 
+  // --- Provider registration (no auth) ---
+  registerProvider: (body: { email: string; phone: string; name: string; company_name: string; rfc: string; postal_code: string; password: string }) =>
+    request<any>("POST", "/api/auth/provider/register", { body }),
+  verifyEmail: (token: string) =>
+    request<any>("GET", "/api/auth/provider/verify-email", { query: { token } }),
+
+  // --- B2C Invoices ---
+  captureInvoice: (quotationId: string, rfc: string, cfdiUse?: string) =>
+    request<any>("POST", "/api/b2c/api/b2c/quotation/{quotationId}/invoice", { params: { quotationId }, body: { rfc, cfdi_use: cfdiUse || "G03" } }),
+  stampInvoice: (invoiceId: string) =>
+    request<any>("POST", "/api/b2c/api/b2c/invoice/{invoiceId}/stamp", { params: { invoiceId } }),
+  cancelInvoice: (invoiceId: string) =>
+    request<any>("POST", "/api/b2c/api/b2c/invoice/{invoiceId}/cancel", { params: { invoiceId } }),
+
   // --- Health ---
   health: () => request<{ status: string }>("GET", "/health"),
 
