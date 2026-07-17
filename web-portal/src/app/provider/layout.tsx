@@ -21,6 +21,7 @@ import { useState } from "react"
 const navItems = [
   { href: "/provider/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/provider/invitations", label: "Invitaciones", icon: Mail },
+      { href: "/provider/quotations", label: "Cotizaciones", icon: FileText },
   { href: "/provider/auctions", label: "Mis ofertas", icon: Gavel },
   { href: "/provider/kyc", label: "Verificación KYC", icon: FileText },
   { href: "/provider/availability", label: "Disponibilidad", icon: Calendar },

@@ -446,6 +446,11 @@ export const api = {
   setMyAvailability: (body: { target_date: string; available: boolean; slots?: string[] }) =>
     request<any>("POST", "/api/provider/availability", { body }),
 
+  // --- Provider quotations (marketplace) ---
+  listQuotationsForBidding: () => request<any[]>("GET", "/api/provider/quotation"),
+  submitBid: (quotationId: string, body: { price_load: number; people?: string; id_truck?: string; provider_note?: string }) =>
+    request<any>("POST", "/api/provider/quotation/{quotationId}/bid", { params: { quotationId }, body }),
+
   // --- Provider (authenticated as provider) ---
   getMyProfile: () => request<Provider>("GET", "/api/provider/profile"),
   listMyAuctions: (query?: { state?: string; limit?: number }) =>
