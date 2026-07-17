@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { useT } from "@/lib/i18n"
 import { ArrowLeft, CreditCard, Building2, DollarSign, CheckCircle } from "lucide-react"
 import { InvoiceSection } from "@/components/invoice-section"
 import { toast } from "sonner"
@@ -15,100 +16,62 @@ import { toast } from "sonner"
 export default function CotizarDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const { t } = useT()
   const [selectedAuction, setSelectedAuction] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState<"card" | "bank_transfer" | "cash">("card")
 
-  const { data: q, isLoading: qLoading } = useQuery({
-    queryKey: ["b2c-quotation", id],
-    queryFn: () => api.getQuotationB2c(id),
-  })
-
-  const { data: auctions, isLoading: aLoading } = useQuery({
-    queryKey: ["b2c-auctions", id],
-    queryFn: () => api.listB2cAuctions(id),
-    enabled: !!q,
-  })
+  const { data: q, isLoading: qLoading } = useQuery({ queryKey: ["b2c-quotation", id], queryFn: () => api.getQuotationB2c(id) })
+  const { data: auctions, isLoading: aLoading } = useQuery({ queryKey: ["b2c-auctions", id], queryFn: () => api.listB2cAuctions(id), enabled: !!q })
 
   const selectMut = useMutation({
-    mutationFn: () => {
-      if (!selectedAuction) throw new Error("No auction selected")
-      return api.selectB2cAuction(id, selectedAuction, false, paymentMethod)
-    },
+    mutationFn: () => { if (!selectedAuction) throw new Error("No auction"); return api.selectB2cAuction(id, selectedAuction, false, paymentMethod) },
     onSuccess: (data: any) => {
       const url = data?.url
-      if (url) {
-        window.location.href = url
-      } else {
-        toast.success("Oferta seleccionada")
-        router.push(`/pago/exito?quotation=${id}`)
-      }
+      if (url) window.location.href = url
+      else { toast.success(t.common.save); router.push(`/pago/exito?quotation=${id}`) }
     },
-    onError: (e: any) => toast.error("Error", e?.message || "No se pudo seleccionar"),
+    onError: (e: any) => toast.error(t.common.error, e?.message),
   })
 
   const isLoading = qLoading || aLoading
   const pendingAuctions = (auctions ?? []).filter((a: any) => a.state === "PENDING")
 
-  if (isLoading) return <div className="mx-auto max-w-2xl py-10 px-4 text-muted-foreground">Cargando...</div>
-  if (!q) return <div className="mx-auto max-w-2xl py-10 px-4 text-destructive">Cotización no encontrada</div>
+  if (isLoading) return <div className="mx-auto max-w-2xl py-10 px-4 text-muted-foreground">{t.common.loading}</div>
+  if (!q) return <div className="mx-auto max-w-2xl py-10 px-4 text-destructive">{t.common.error}</div>
 
   return (
     <div className="mx-auto max-w-2xl py-10 px-4 space-y-6">
-      <Button variant="ghost" size="sm" onClick={() => router.push("/")}>
-        <ArrowLeft className="h-4 w-4 mr-1" /> Volver
-      </Button>
-
+      <Button variant="ghost" size="sm" onClick={() => router.push("/")}><ArrowLeft className="h-4 w-4 mr-1" /> {t.common.back}</Button>
       <div>
-        <h1 className="text-3xl font-bold">Tu cotización</h1>
+        <h1 className="text-3xl font-bold">{t.quotation.title}</h1>
         <p className="text-muted-foreground">{q.client_name} • {q.origin_adress || "—"} → {q.destination_adress || "—"}</p>
       </div>
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Detalles del servicio</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-base">{t.quotation.details}</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-2 gap-3 text-sm">
-          <div><span className="text-muted-foreground">Tipo: </span>{q.service_type || "—"}</div>
-          <div><span className="text-muted-foreground">Zona: </span>{q.service_zone || "—"}</div>
-          <div><span className="text-muted-foreground">Origen: </span>{q.origin_adress || "—"}</div>
-          <div><span className="text-muted-foreground">Destino: </span>{q.destination_adress || "—"}</div>
+          <div><span className="text-muted-foreground">{t.wizard.type}: </span>{q.service_type || "—"}</div>
+          <div><span className="text-muted-foreground">{t.wizard.zone}: </span>{q.service_zone || "—"}</div>
+          <div><span className="text-muted-foreground">{t.wizard.origin}: </span>{q.origin_adress || "—"}</div>
+          <div><span className="text-muted-foreground">{t.wizard.destination}: </span>{q.destination_adress || "—"}</div>
         </CardContent>
       </Card>
 
       <div>
-        <h2 className="text-xl font-bold mb-4">
-          Ofertas de transportistas
-          {pendingAuctions.length > 0 && <Badge variant="default" className="ml-2">{pendingAuctions.length}</Badge>}
-        </h2>
-
+        <h2 className="text-xl font-bold mb-4">{t.quotation.offers} {pendingAuctions.length > 0 && <Badge variant="default" className="ml-2">{pendingAuctions.length}</Badge>}</h2>
         {pendingAuctions.length === 0 ? (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              Aún no hay ofertas para esta cotización. Volvé más tarde.
-            </CardContent>
-          </Card>
+          <Card><CardContent className="py-10 text-center text-muted-foreground">{t.quotation.noOffers}</CardContent></Card>
         ) : (
-          <div className="space-y-3">
-            {pendingAuctions.map((a: any) => (
-              <div
-                key={a.id}
-                onClick={() => setSelectedAuction(a.id)}
-                className={`rounded-lg border p-4 cursor-pointer transition-colors ${
-                  selectedAuction === a.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Transportista</p>
-                    <p className="font-mono text-sm">{a.provider_id.slice(0, 12)}…</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Total</p>
-                    <p className="text-2xl font-bold text-primary">${(Number(a.total) || 0).toFixed(2)}</p>
-                  </div>
-                </div>
-                {selectedAuction === a.id && <CheckCircle className="h-5 w-5 text-primary ml-auto mt-1" />}
+          <div className="space-y-3">{pendingAuctions.map((a: any) => (
+            <div key={a.id} onClick={() => setSelectedAuction(a.id)}
+              className={`rounded-lg border p-4 cursor-pointer transition-colors ${selectedAuction === a.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50"}`}>
+              <div className="flex items-center justify-between">
+                <div><p className="text-xs text-muted-foreground">{t.nav.providers}</p><p className="font-mono text-sm">{a.provider_id.slice(0, 12)}…</p></div>
+                <div className="text-right"><p className="text-xs text-muted-foreground">{t.product.price}</p><p className="text-2xl font-bold text-primary">${(Number(a.total) || 0).toFixed(2)}</p></div>
               </div>
-            ))}
-          </div>
+              {selectedAuction === a.id && <CheckCircle className="h-5 w-5 text-primary ml-auto mt-1" />}
+            </div>
+          ))}</div>
         )}
       </div>
 
@@ -116,35 +79,31 @@ export default function CotizarDetailPage({ params }: { params: Promise<{ id: st
         <>
           <Separator />
           <div>
-            <h3 className="text-sm font-medium mb-3">Método de pago</h3>
+            <h3 className="text-sm font-medium mb-3">{t.payment.card}</h3>
             <div className="grid grid-cols-3 gap-3">
               <button onClick={() => setPaymentMethod("card")}
                 className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors ${paymentMethod === "card" ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
-                <CreditCard className="h-6 w-6" />
-                <span className="text-xs font-medium">Tarjeta</span>
+                <CreditCard className="h-6 w-6" /><span className="text-xs font-medium">{t.payment.card}</span>
               </button>
               <button onClick={() => setPaymentMethod("bank_transfer")}
                 className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors ${paymentMethod === "bank_transfer" ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
-                <Building2 className="h-6 w-6" />
-                <span className="text-xs font-medium">SPEI</span>
+                <Building2 className="h-6 w-6" /><span className="text-xs font-medium">{t.payment.spei}</span>
               </button>
               <button onClick={() => setPaymentMethod("cash")}
                 className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors ${paymentMethod === "cash" ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
-                <DollarSign className="h-6 w-6" />
-                <span className="text-xs font-medium">OXXO</span>
+                <DollarSign className="h-6 w-6" /><span className="text-xs font-medium">{t.payment.oxxo}</span>
               </button>
             </div>
           </div>
 
           <Button className="w-full" size="lg" onClick={() => selectMut.mutate()} disabled={selectMut.isPending}>
-            {selectMut.isPending ? "Procesando..." : `Pagar $${(Number((auctions ?? []).find((a: any) => a.id === selectedAuction)?.total) || 0).toFixed(2)}`}
-              </Button>
-            </>
-          )}
+            {selectMut.isPending ? t.common.loading : `${t.payment.pay} $${(Number((auctions ?? []).find((a: any) => a.id === selectedAuction)?.total) || 0).toFixed(2)}`}
+          </Button>
 
-          {/* Invoice section */}
           <Separator />
           <InvoiceSection quotationId={id} />
-        </div>
-      )
-    }
+        </>
+      )}
+    </div>
+  )
+}
