@@ -34,7 +34,9 @@ export default function CotizarDetailPage({ params }: { params: Promise<{ id: st
   })
 
   const isLoading = qLoading || aLoading
-  const pendingAuctions = (auctions ?? []).filter((a: any) => a.state === "PENDING")
+  const allBids = (auctions ?? []).filter((a: any) => a.state !== "REJECTED")
+  const pendingBids = allBids.filter((a: any) => a.state === "PENDING")
+  const selected = (auctions ?? []).find((a: any) => a.id === selectedAuction)
 
   if (isLoading) return <div className="mx-auto max-w-2xl py-10 px-4 text-muted-foreground">{t.common.loading}</div>
   if (!q) return <div className="mx-auto max-w-2xl py-10 px-4 text-destructive">{t.common.error}</div>
@@ -58,29 +60,45 @@ export default function CotizarDetailPage({ params }: { params: Promise<{ id: st
       </Card>
 
       <div>
-        <h2 className="text-xl font-bold mb-4">{t.quotation.offers} {pendingAuctions.length > 0 && <Badge variant="default" className="ml-2">{pendingAuctions.length}</Badge>}</h2>
-        {pendingAuctions.length === 0 ? (
+        <h2 className="text-xl font-bold mb-4">{t.quotation.offers} <Badge variant="default" className="ml-2">{pendingBids.length}</Badge></h2>
+
+        {allBids.length === 0 ? (
           <Card><CardContent className="py-10 text-center text-muted-foreground">{t.quotation.noOffers}</CardContent></Card>
         ) : (
-          <div className="space-y-3">{pendingAuctions.map((a: any) => (
-            <div key={a.id} onClick={() => setSelectedAuction(a.id)}
-              className={`rounded-lg border p-4 cursor-pointer transition-colors ${selectedAuction === a.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50"}`}>
-              <div className="flex items-center justify-between">
-                <div><p className="text-xs text-muted-foreground">{t.nav.providers}</p><p className="font-mono text-sm">{a.provider_id.slice(0, 12)}…</p></div>
-                <div className="text-right"><p className="text-xs text-muted-foreground">{t.product.price}</p><p className="text-2xl font-bold text-primary">${(Number(a.total) || 0).toFixed(2)}</p></div>
+          <div className="space-y-3">
+            {allBids.map((a: any) => (
+              <div key={a.id} onClick={() => a.state === "PENDING" && setSelectedAuction(a.id)}
+                className={`rounded-lg border p-4 transition-colors ${a.state === "PENDING" ? "cursor-pointer" : "opacity-70"} ${selectedAuction === a.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50"}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">{t.nav.providers}</p>
+                    <p className="font-mono text-sm">{a.provider_id.slice(0, 12)}…</p>
+                    {a.provider_note && <p className="text-xs text-muted-foreground mt-1 italic">"{a.provider_note}"</p>}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">{t.product.price}</p>
+                    <p className="text-2xl font-bold text-primary">${(Number(a.total) || 0).toFixed(2)}</p>
+                    {selectedAuction === a.id && (
+                      <p className="text-xs text-green-600 font-medium mt-1">
+                        {t.common.save}: ${((Number(a.total) || 0) * 0.05).toFixed(2)} (5%)
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {a.state !== "PENDING" && <Badge variant={a.state === "SELECTED" ? "default" : "secondary"} className="mt-2">{a.state}</Badge>}
+                {selectedAuction === a.id && <CheckCircle className="h-5 w-5 text-primary ml-auto mt-1" />}
               </div>
-              {selectedAuction === a.id && <CheckCircle className="h-5 w-5 text-primary ml-auto mt-1" />}
-            </div>
-          ))}</div>
+            ))}
+          </div>
         )}
       </div>
 
-      {pendingAuctions.length > 0 && selectedAuction && (
+      {selected && (
         <>
           <Separator />
           <div>
             <h3 className="text-sm font-medium mb-3">{t.payment.card}</h3>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-3 mb-4">
               <button onClick={() => setPaymentMethod("card")}
                 className={`flex flex-col items-center gap-2 rounded-lg border p-4 transition-colors ${paymentMethod === "card" ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
                 <CreditCard className="h-6 w-6" /><span className="text-xs font-medium">{t.payment.card}</span>
@@ -94,11 +112,19 @@ export default function CotizarDetailPage({ params }: { params: Promise<{ id: st
                 <DollarSign className="h-6 w-6" /><span className="text-xs font-medium">{t.payment.oxxo}</span>
               </button>
             </div>
-          </div>
 
-          <Button className="w-full" size="lg" onClick={() => selectMut.mutate()} disabled={selectMut.isPending}>
-            {selectMut.isPending ? t.common.loading : `${t.payment.pay} $${(Number((auctions ?? []).find((a: any) => a.id === selectedAuction)?.total) || 0).toFixed(2)}`}
-          </Button>
+            <Card className="bg-muted/30 mb-4">
+              <CardContent className="py-3 text-sm space-y-1">
+                <div className="flex justify-between"><span>{t.product.price} del transportista:</span><span>${(Number(selected.total) || 0).toFixed(2)}</span></div>
+                <div className="flex justify-between font-medium text-primary"><span>{t.common.save} (5%):</span><span>${((Number(selected.total) || 0) * 0.05).toFixed(2)}</span></div>
+                <div className="flex justify-between text-xs text-muted-foreground"><span>Restante a pagar al transportista:</span><span>${((Number(selected.total) || 0) * 0.95).toFixed(2)}</span></div>
+              </CardContent>
+            </Card>
+
+            <Button className="w-full" size="lg" onClick={() => selectMut.mutate()} disabled={selectMut.isPending}>
+              {selectMut.isPending ? t.common.loading : `${t.payment.pay} $${((Number(selected.total) || 0) * 0.05).toFixed(2)} (5%)`}
+            </Button>
+          </div>
 
           <Separator />
           <InvoiceSection quotationId={id} />

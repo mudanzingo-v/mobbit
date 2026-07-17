@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -35,11 +35,12 @@ export default function CotizarPage() {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<FormData>(emptyForm())
   const [loading, setLoading] = useState(false)
+  const [quotationId, setQuotationId] = useState<string | null>(null)
 
   const { data: services } = useQuery({ queryKey: ["b2c-services"], queryFn: () => api.listB2cServices() })
   const { data: products } = useQuery({ queryKey: ["b2c-products"], queryFn: () => api.listB2cProducts() })
 
-  function set<K extends keyof FormData>(k: K, v: any) { setForm((f) => ({ ...f, [k]: v })) }
+  function setField<K extends keyof FormData>(k: K, v: any) { setForm((f) => ({ ...f, [k]: v })) }
 
   const selectedService = (services ?? []).find((s: any) => s.id === form.service_id)
 
@@ -47,22 +48,91 @@ export default function CotizarPage() {
     setForm((f) => ({ ...f, selected_products: f.selected_products.includes(productId) ? f.selected_products.filter((id) => id !== productId) : [...f.selected_products, productId] }))
   }
 
+  // Save current step to backend
+  const saveStep = useCallback(async (targetStep: number) => {
+    if (!quotationId) return
+
+    const partial: any = { wizard_step: targetStep }
+    if (targetStep >= 1) {
+      partial.client_name = form.client_name
+      partial.client_phone = form.client_phone
+      partial.client_email = form.client_email
+      partial.service_zone = form.service_zone
+      partial.service_date = form.service_date || null
+    }
+    if (targetStep >= 2) {
+      partial.service_name = selectedService?.name || form.service_name
+      partial.service_type = selectedService?.name || ""
+    }
+    if (targetStep >= 3) {
+      partial.origin_adress = form.origin_adress
+      partial.origin_postal_code = form.origin_postal_code
+      partial.origin_type = form.origin_type
+      partial.origin_floor = form.origin_floor || null
+      partial.destination_adress = form.destination_adress
+      partial.destination_postal_code = form.destination_postal_code
+      partial.destination_type = form.destination_type
+      partial.destination_floor = form.destination_floor || null
+    }
+
+    await api.updateQuotationB2c(quotationId, partial)
+  }, [quotationId, form, selectedService])
+
+  async function handleNext() {
+    setLoading(true)
+    try {
+      if (step === 1) {
+        // Create quotation with step 1 data
+        const q = await api.createQuotationB2c({
+          client_name: form.client_name,
+          client_phone: form.client_phone,
+          client_email: form.client_email,
+          service_zone: form.service_zone,
+          service_date: form.service_date || null,
+          wizard_step: 1,
+        } as any)
+        setQuotationId(q.id)
+      } else {
+        // Save partial progress
+        await saveStep(step + 1)
+      }
+      setStep(step + 1)
+    } catch (e: any) {
+      toast.error(t.common.error, e?.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   async function handleSubmit() {
     setLoading(true)
     try {
-      const body: any = {
-        client_name: form.client_name, client_phone: form.client_phone, client_email: form.client_email,
-        service_name: selectedService?.name || form.service_name, service_type: selectedService?.name || "",
-        service_zone: form.service_zone, service_date: form.service_date || null,
-        origin_adress: form.origin_adress, origin_postal_code: form.origin_postal_code, origin_type: form.origin_type, origin_floor: form.origin_floor || null,
-        destination_adress: form.destination_adress, destination_postal_code: form.destination_postal_code, destination_type: form.destination_type, destination_floor: form.destination_floor || null,
-        products: form.selected_products, wizard_step: 7, wizard_complete: true, state: "FILLED",
-      }
-      const q = await api.createQuotationB2c(body)
+      // Final save — set state to BIDDING so providers can see it
+      await api.updateQuotationB2c(quotationId!, {
+        service_name: selectedService?.name || form.service_name,
+        service_type: selectedService?.name || "",
+        service_zone: form.service_zone,
+        service_date: form.service_date || null,
+        origin_adress: form.origin_adress,
+        origin_postal_code: form.origin_postal_code,
+        origin_type: form.origin_type,
+        origin_floor: form.origin_floor || null,
+        destination_adress: form.destination_adress,
+        destination_postal_code: form.destination_postal_code,
+        destination_type: form.destination_type,
+        destination_floor: form.destination_floor || null,
+        wizard_step: 7,
+        wizard_complete: true,
+        state: "BIDDING",
+      } as any)
+
       toast.success(t.common.save)
-      router.push(`/cotizar/${q.id}`)
-    } catch (e: any) { toast.error(t.common.error, e?.message) }
-    finally { setLoading(false) }
+      router.push(`/cotizar/${quotationId}`)
+    } catch (e: any) {
+      toast.error(t.common.error, e?.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -81,17 +151,17 @@ export default function CotizarPage() {
           {step === 1 && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2"><Label>{t.wizard.clientName}</Label><Input required value={form.client_name} onChange={(e) => set("client_name", e.target.value)} placeholder="Juan Pérez" /></div>
-                <div><Label>{t.wizard.phone}</Label><Input type="tel" value={form.client_phone} onChange={(e) => set("client_phone", e.target.value)} placeholder="5512345678" /></div>
-                <div><Label>{t.wizard.email}</Label><Input type="email" value={form.client_email} onChange={(e) => set("client_email", e.target.value)} placeholder="juan@email.com" /></div>
+                <div className="col-span-2"><Label>{t.wizard.clientName}</Label><Input required value={form.client_name} onChange={(e) => setField("client_name", e.target.value)} placeholder="Juan Pérez" /></div>
+                <div><Label>{t.wizard.phone}</Label><Input type="tel" value={form.client_phone} onChange={(e) => setField("client_phone", e.target.value)} placeholder="5512345678" /></div>
+                <div><Label>{t.wizard.email}</Label><Input type="email" value={form.client_email} onChange={(e) => setField("client_email", e.target.value)} placeholder="juan@email.com" /></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>{t.wizard.zone}</Label>
-                  <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.service_zone} onChange={(e) => set("service_zone", e.target.value)}>
+                  <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.service_zone} onChange={(e) => setField("service_zone", e.target.value)}>
                     <option value="Local">{t.wizard.local}</option><option value="Foráneo">{t.wizard.longDistance}</option>
                   </select>
                 </div>
-                <div><Label>{t.wizard.estimatedDate}</Label><Input type="date" value={form.service_date} onChange={(e) => set("service_date", e.target.value)} /></div>
+                <div><Label>{t.wizard.estimatedDate}</Label><Input type="date" value={form.service_date} onChange={(e) => setField("service_date", e.target.value)} /></div>
               </div>
             </div>
           )}
@@ -99,7 +169,7 @@ export default function CotizarPage() {
           {step === 2 && (
             <div className="space-y-6">
               <div><h3 className="text-sm font-medium mb-3">{t.wizard.service}</h3>
-                <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.service_id} onChange={(e) => { const svc = (services ?? []).find((s: any) => s.id === e.target.value); set("service_id", e.target.value); if (svc) set("service_name", svc.name) }}>
+                <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.service_id} onChange={(e) => { const svc = (services ?? []).find((s: any) => s.id === e.target.value); setField("service_id", e.target.value); if (svc) setField("service_name", svc.name) }}>
                   <option value="">{t.wizard.selectService}</option>
                   {(services ?? []).map((s: any) => (<option key={s.id} value={s.id}>{s.name}{s.price ? ` ($${s.price})` : ""}</option>))}
                 </select>
@@ -121,29 +191,29 @@ export default function CotizarPage() {
             <div className="space-y-6">
               <div><h3 className="text-sm font-medium mb-3">{t.wizard.origin}</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2"><Label>{t.wizard.address}</Label><Input value={form.origin_adress} onChange={(e) => set("origin_adress", e.target.value)} placeholder="Calle y número" /></div>
-                  <div><Label>{t.wizard.postalCode}</Label><Input value={form.origin_postal_code} onChange={(e) => set("origin_postal_code", e.target.value)} placeholder="01000" /></div>
+                  <div className="col-span-2"><Label>{t.wizard.address}</Label><Input value={form.origin_adress} onChange={(e) => setField("origin_adress", e.target.value)} placeholder="Calle y número" /></div>
+                  <div><Label>{t.wizard.postalCode}</Label><Input value={form.origin_postal_code} onChange={(e) => setField("origin_postal_code", e.target.value)} placeholder="01000" /></div>
                   <div><Label>{t.wizard.type}</Label>
-                    <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.origin_type} onChange={(e) => set("origin_type", e.target.value)}>
+                    <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.origin_type} onChange={(e) => setField("origin_type", e.target.value)}>
                       <option value={t.wizard.house}>{t.wizard.house}</option><option value={t.wizard.apartment}>{t.wizard.apartment}</option>
                       <option value={t.wizard.office}>{t.wizard.office}</option><option value={t.wizard.warehouse}>{t.wizard.warehouse}</option>
                     </select>
                   </div>
-                  <div><Label>{t.wizard.floor}</Label><Input value={form.origin_floor} onChange={(e) => set("origin_floor", e.target.value)} /></div>
+                  <div><Label>{t.wizard.floor}</Label><Input value={form.origin_floor} onChange={(e) => setField("origin_floor", e.target.value)} /></div>
                 </div>
               </div>
               <Separator />
               <div><h3 className="text-sm font-medium mb-3">{t.wizard.destination}</h3>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="col-span-2"><Label>{t.wizard.address}</Label><Input value={form.destination_adress} onChange={(e) => set("destination_adress", e.target.value)} placeholder="Calle y número" /></div>
-                  <div><Label>{t.wizard.postalCode}</Label><Input value={form.destination_postal_code} onChange={(e) => set("destination_postal_code", e.target.value)} placeholder="01000" /></div>
+                  <div className="col-span-2"><Label>{t.wizard.address}</Label><Input value={form.destination_adress} onChange={(e) => setField("destination_adress", e.target.value)} placeholder="Calle y número" /></div>
+                  <div><Label>{t.wizard.postalCode}</Label><Input value={form.destination_postal_code} onChange={(e) => setField("destination_postal_code", e.target.value)} placeholder="01000" /></div>
                   <div><Label>{t.wizard.type}</Label>
-                    <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.destination_type} onChange={(e) => set("destination_type", e.target.value)}>
+                    <select className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={form.destination_type} onChange={(e) => setField("destination_type", e.target.value)}>
                       <option value={t.wizard.house}>{t.wizard.house}</option><option value={t.wizard.apartment}>{t.wizard.apartment}</option>
                       <option value={t.wizard.office}>{t.wizard.office}</option><option value={t.wizard.warehouse}>{t.wizard.warehouse}</option>
                     </select>
                   </div>
-                  <div><Label>{t.wizard.floor}</Label><Input value={form.destination_floor} onChange={(e) => set("destination_floor", e.target.value)} /></div>
+                  <div><Label>{t.wizard.floor}</Label><Input value={form.destination_floor} onChange={(e) => setField("destination_floor", e.target.value)} /></div>
                 </div>
               </div>
             </div>
@@ -172,9 +242,16 @@ export default function CotizarPage() {
           )}
 
           <div className="flex justify-between mt-6">
-            {step > 1 ? <Button variant="outline" onClick={() => setStep(step - 1)}><ArrowLeft className="h-4 w-4 mr-1" /> {t.common.back}</Button> : <div />}
-            {step < 4 ? <Button onClick={() => setStep(step + 1)} disabled={step === 1 && !form.client_name}>{t.common.next} <ArrowRight className="h-4 w-4 ml-1" /></Button>
-              : <Button onClick={handleSubmit} disabled={loading}>{loading ? t.common.loading : t.wizard.publishQuotation} <Send className="h-4 w-4 ml-1" /></Button>}
+            {step > 1 ? <Button variant="outline" onClick={() => setStep(step - 1)} disabled={loading}><ArrowLeft className="h-4 w-4 mr-1" /> {t.common.back}</Button> : <div />}
+            {step < 4 ? (
+              <Button onClick={handleNext} disabled={(step === 1 && !form.client_name) || loading}>
+                {loading ? t.common.loading : t.common.next} <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            ) : (
+              <Button onClick={handleSubmit} disabled={loading}>
+                {loading ? t.common.loading : t.wizard.publishQuotation} <Send className="h-4 w-4 ml-1" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
